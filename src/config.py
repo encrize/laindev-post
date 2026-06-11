@@ -17,7 +17,9 @@ ADMIN_CHAT_ID = os.environ.get("ADMIN_CHAT_ID", "")
 # --- Бесплатный ИИ ---
 # Gemini API (основной). Бесплатный ключ: https://aistudio.google.com/app/apikey
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+# По умолчанию — Gemma 4 31B: бесплатно 1500 запросов/день и без лимита токенов/мин.
+# Бот всё равно сам подтянет живой список моделей из API и переберёт рабочие.
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemma-4-31b-it")
 
 # OpenRouter (резерв). Бесплатные модели: https://openrouter.ai/keys
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")

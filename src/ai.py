@@ -12,18 +12,49 @@ import requests
 from . import config
 
 # Сколько раз повторять запрос при временных ошибках (429/5xx) до фолбэка.
-RETRY_ATTEMPTS = 3
-RETRY_BASE_DELAY = 4  # сек: 4, 8, 16...
+RETRY_ATTEMPTS = 2
+RETRY_BASE_DELAY = 3  # сек: 3, 6... (глубоко не повторяем — у нас есть перебор живых моделей)
 RETRY_STATUSES = {429, 500, 502, 503, 504}
 
-# Запасные БЕСПЛАТНЫЕ модели OpenRouter — перебираем по очереди при 429/ошибке.
-# Первым идёт OPENROUTER_MODEL из Secrets, потом эти.
+# Сколько моделей максимум перебрать у каждого провайдера (чтобы не висеть вечно).
+MAX_MODELS_PER_PROVIDER = 6
+
+# === Бесплатные модели подбираем ДИНАМИЧЕСКИ из API провайдеров ===
+# Так мы никогда не упрёмся в снятые/переименованные слаги (ошибка 404).
+
+# OpenRouter: предпочтительные бесплатные модели (если сейчас живые — идут первыми).
+OPENROUTER_PREFERRED_FREE = [
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "nvidia/nemotron-3-super:free",
+    "google/gemma-3-27b-it:free",
+    "deepseek/deepseek-chat-v3-0324:free",
+]
+_OPENROUTER_FREE_CACHE = None
+
+# Gemini: порядок предпочтения по подстроке имени.
+# Gemma 4 — самый щедрый бесплатный лимит (1500 запросов/день, без лимита токенов/мин).
+GEMINI_PREFERRED_PATTERNS = [
+    "gemma-4-31b",
+    "gemma-4-26b",
+    "gemma-4",
+    "gemini-2.5-flash-lite",
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+]
+# Резерв, если живой список моделей Gemini получить не удалось.
+GEMINI_FALLBACK_MODELS = [
+    "gemma-4-31b-it",
+    "gemma-4-26b-it",
+    "gemini-2.5-flash-lite",
+    "gemini-2.5-flash",
+    "gemini-2.0-flash",
+]
+_GEMINI_MODELS_CACHE = None
+
+# Резерв OpenRouter, если живой список получить не удалось.
 OPENROUTER_FALLBACK_MODELS = [
     "openrouter/free",                          # авто-роутер: сам выбирает любую доступную бесплатную модель
-    "deepseek/deepseek-chat-v3-0324:free",
-    "deepseek/deepseek-r1:free",
     "meta-llama/llama-3.3-70b-instruct:free",
-    "qwen/qwen3-235b-a22b:free",
 ]
 
 # В шаблоне используем простые плейсхолдеры __N__ и __NEWS__ (без str.format),
@@ -104,10 +135,86 @@ def _request_with_retries(method, url, **kwargs):
     raise RuntimeError("Не удалось выполнить запрос: " + url)
 
 
-def _call_gemini(prompt):
+def _list_gemini_models():
+    """Живой список Gemini-моделей, поддерживающих generateContent."""
+    global _GEMINI_MODELS_CACHE
+    if _GEMINI_MODELS_CACHE is not None:
+        return _GEMINI_MODELS_CACHE
+    names = []
+    try:
+        resp = requests.get(
+            "https://generativelanguage.googleapis.com/v1beta/models",
+            params={"key": config.GEMINI_API_KEY},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        for m in resp.json().get("models", []):
+            methods = m.get("supportedGenerationMethods") or []
+            name = m.get("name", "")
+            if "generateContent" in methods and name.startswith("models/"):
+                names.append(name[len("models/"):])
+    except Exception as e:  # noqa: BLE001
+        print("[ai] не удалось получить список моделей Gemini: " + str(e))
+    _GEMINI_MODELS_CACHE = names
+    return names
+
+
+def _gemini_models_to_try():
+    """Порядок перебора Gemini: Secrets-модель -> предпочтительные шаблоны -> остальные живые."""
+    ordered = []
+    if config.GEMINI_MODEL:
+        ordered.append(config.GEMINI_MODEL)
+    available = _list_gemini_models()
+    if available:
+        for pat in GEMINI_PREFERRED_PATTERNS:
+            for name in available:
+                if pat in name and name not in ordered:
+                    ordered.append(name)
+        for name in available:
+            if name not in ordered:
+                ordered.append(name)
+    else:
+        for name in GEMINI_FALLBACK_MODELS:
+            if name not in ordered:
+                ordered.append(name)
+    return ordered
+
+
+def _openrouter_models_to_try():
+    """Живой список бесплатных моделей OpenRouter (id оканчивается на ':free')."""
+    global _OPENROUTER_FREE_CACHE
+    if _OPENROUTER_FREE_CACHE is None:
+        free_ids = []
+        try:
+            resp = requests.get("https://openrouter.ai/api/v1/models", timeout=30)
+            resp.raise_for_status()
+            data = resp.json().get("data", [])
+            free_ids = [
+                m["id"] for m in data
+                if isinstance(m.get("id"), str) and m["id"].endswith(":free")
+            ]
+        except Exception as e:  # noqa: BLE001
+            print("[ai] не удалось получить список моделей OpenRouter: " + str(e))
+        ordered = [m for m in OPENROUTER_PREFERRED_FREE if m in free_ids]
+        ordered += [m for m in free_ids if m not in ordered]
+        if not ordered:
+            ordered = list(OPENROUTER_FALLBACK_MODELS)
+        if "openrouter/free" not in ordered:
+            ordered.append("openrouter/free")
+        _OPENROUTER_FREE_CACHE = ordered
+    result = []
+    if config.OPENROUTER_MODEL:
+        result.append(config.OPENROUTER_MODEL)
+    for m in _OPENROUTER_FREE_CACHE:
+        if m not in result:
+            result.append(m)
+    return result
+
+
+def _call_gemini(prompt, model):
     url = (
         "https://generativelanguage.googleapis.com/v1beta/models/"
-        + config.GEMINI_MODEL + ":generateContent"
+        + model + ":generateContent"
     )
     r = _request_with_retries(
         "POST", url,
@@ -136,25 +243,23 @@ def _call_openrouter(prompt, model):
 
 
 def _generate(prompt):
-    """Пробуем Gemini (с повторами), при ошибке — OpenRouter (перебор бесплатных моделей)."""
+    """Перебираем ЖИВЫЕ бесплатные модели: сначала Gemini (Gemma 4 и пр.),
+    затем OpenRouter (актуальный список :free из API). Берём первую, что ответит."""
     errors = []
 
     if config.GEMINI_API_KEY:
-        try:
-            return _call_gemini(prompt)
-        except Exception as e:  # noqa: BLE001
-            errors.append("Gemini: " + str(e))
+        for model in _gemini_models_to_try()[:MAX_MODELS_PER_PROVIDER]:
+            try:
+                return _call_gemini(prompt, model)
+            except Exception as e:  # noqa: BLE001
+                errors.append("Gemini[" + model + "]: " + str(e))
 
     if config.OPENROUTER_API_KEY:
-        models = []
-        for m in [config.OPENROUTER_MODEL] + OPENROUTER_FALLBACK_MODELS:
-            if m and m not in models:
-                models.append(m)
-        for m in models:
+        for model in _openrouter_models_to_try()[:MAX_MODELS_PER_PROVIDER]:
             try:
-                return _call_openrouter(prompt, m)
+                return _call_openrouter(prompt, model)
             except Exception as e:  # noqa: BLE001
-                errors.append("OpenRouter[" + m + "]: " + str(e))
+                errors.append("OpenRouter[" + model + "]: " + str(e))
 
     if not errors:
         raise RuntimeError(
