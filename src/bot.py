@@ -27,13 +27,11 @@ def _persist_state():
     if os.environ.get("GITHUB_ACTIONS") != "true":
         return
     try:
-        subprocess.run(["git", "add", "data/"], check=False)
-        # Если нечего коммитить — выходим.
-        if subprocess.run(["git", "diff", "--cached", "--quiet"]).returncode == 0:
-            return
-        subprocess.run(["git", "commit", "-m", "chore: bot state [skip ci]"], check=False)
-        subprocess.run(["git", "pull", "--rebase", "--autostash"], check=False)
-        subprocess.run(["git", "push"], check=False)
+        # Надёжный коммит с обработкой гонок нескольких воркфлоу (см. scripts/commit_state.sh).
+        subprocess.run(
+            ["bash", "scripts/commit_state.sh", "chore: bot state [skip ci]"],
+            check=False,
+        )
     except Exception as e:  # noqa: BLE001
         print("[bot] не удалось сохранить состояние:", e)
 
