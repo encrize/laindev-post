@@ -26,6 +26,6 @@ OPENROUTER_MODEL = os.environ.get(
 )
 
 # --- Поведение ---
-POSTS_PER_DAY = int(os.environ.get("POSTS_PER_DAY", "5"))      # ровно 5 постов в день
+POSTS_PER_DAY = int(os.environ.get("POSTS_PER_DAY", "6"))      # ровно 6 постов в день
 LOOKBACK_HOURS = int(os.environ.get("LOOKBACK_HOURS", "24"))   # окно сбора новостей
 MAX_CANDIDATES = int(os.environ.get("MAX_CANDIDATES", "60"))   # сколько новостей отдаём ИИ
