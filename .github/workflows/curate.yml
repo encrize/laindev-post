@@ -1,0 +1,43 @@
+name: Curate (collect & pick top-5)
+
+# Сбор новостей и формирование очереди на день. 1 раз в сутки (= 1 вызов ИИ).
+on:
+  schedule:
+    - cron: "0 5 * * *"   # 05:00 UTC ≈ 10:00 по UTC+5
+  workflow_dispatch:
+
+permissions:
+  contents: write   # нужно, чтобы коммитить обновлённое состояние data/
+
+concurrency:
+  group: news-state
+  cancel-in-progress: false
+
+jobs:
+  curate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: Curate
+        env:
+          CHANNEL_BOT_TOKEN: ${{ secrets.CHANNEL_BOT_TOKEN }}
+          CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
+          SERVICE_BOT_TOKEN: ${{ secrets.SERVICE_BOT_TOKEN }}
+          ADMIN_CHAT_ID: ${{ secrets.ADMIN_CHAT_ID }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: python -m src.main curate
+      - name: Commit state
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: update queue [skip ci]"
+            git pull --rebase --autostash
+            git push
+          fi
