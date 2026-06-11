@@ -103,11 +103,13 @@ def send_report(text):
     })
 
 
-def get_updates(offset):
-    """Получаем обновления сервисного бота (для команд по запросу)."""
+def get_updates(offset, poll_timeout=0):
+    """Получаем обновления сервисного бота (для команд по запросу).
+    poll_timeout>0 включает длинный поллинг: Telegram сам держит соединение
+    до poll_timeout секунд и отвечает сразу, как только приходит сообщение."""
     r = requests.get(
         _api(config.SERVICE_BOT_TOKEN, "getUpdates"),
-        params={"offset": offset + 1, "timeout": 0, "allowed_updates": '["message"]'},
-        timeout=40,
+        params={"offset": offset + 1, "timeout": poll_timeout, "allowed_updates": '["message"]'},
+        timeout=poll_timeout + 20,
     )
     return r.json().get("result", [])

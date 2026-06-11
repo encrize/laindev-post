@@ -96,7 +96,10 @@ def publish_all():
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("mode", choices=["curate", "publish", "publish_all", "bot"])
+    parser.add_argument(
+        "mode",
+        choices=["curate", "publish", "publish_all", "bot", "bot_loop"],
+    )
     args = parser.parse_args()
 
     if args.mode == "curate":
@@ -108,6 +111,12 @@ def main():
     elif args.mode == "bot":
         from .bot import poll_once
         poll_once()
+    elif args.mode == "bot_loop":
+        import os
+        from .bot import run_loop
+        # Бюджет чуть меньше лимита одного запуска Actions (6ч).
+        minutes = int(os.environ.get("LOOP_MINUTES", "340"))
+        run_loop(minutes * 60)
 
 
 if __name__ == "__main__":
