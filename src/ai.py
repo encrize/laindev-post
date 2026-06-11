@@ -1,13 +1,20 @@
 """Работа с бесплатным ИИ: выбор топ-N новостей и генерация постов.
 Один запрос на день -> легко укладывается в бесплатные лимиты.
 Основной провайдер — Gemini, резерв — OpenRouter.
+На 429/503 делаем повторы с экспоненциальной задержкой, потом фолбэк.
 """
 import json
 import re
+import time
 
 import requests
 
 from . import config
+
+# Сколько раз повторять запрос при временных ошибках (429/5xx) до фолбэка.
+RETRY_ATTEMPTS = 4
+RETRY_BASE_DELAY = 4  # сек: 4, 8, 16, 32...
+RETRY_STATUSES = {429, 500, 502, 503, 504}
 
 # В шаблоне используем простые плейсхолдеры __N__ и __NEWS__ (без str.format),
 # чтобы фигурные скобки JSON-примера не надо было экранировать.
@@ -61,13 +68,38 @@ def _extract_json(text):
     return json.loads(text)
 
 
+def _request_with_retries(method, url, **kwargs):
+    """POST/GET с повторами на временных ошибках (429/5xx).
+    Учитываем заголовок Retry-After, если сервер его вернул.
+    """
+    last_exc = None
+    for attempt in range(RETRY_ATTEMPTS):
+        resp = requests.request(method, url, **kwargs)
+        if resp.status_code in RETRY_STATUSES and attempt < RETRY_ATTEMPTS - 1:
+            retry_after = resp.headers.get("Retry-After")
+            try:
+                delay = float(retry_after) if retry_after else RETRY_BASE_DELAY * (2 ** attempt)
+            except ValueError:
+                delay = RETRY_BASE_DELAY * (2 ** attempt)
+            print("[ai] {} {} -> повтор через {:.0f}с (попытка {}/{})".format(
+                resp.status_code, url.split("?")[0], delay, attempt + 1, RETRY_ATTEMPTS))
+            time.sleep(delay)
+            last_exc = requests.HTTPError("{} for {}".format(resp.status_code, url.split("?")[0]))
+            continue
+        resp.raise_for_status()
+        return resp
+    if last_exc:
+        raise last_exc
+    raise RuntimeError("Не удалось выполнить запрос: " + url)
+
+
 def _call_gemini(prompt):
     url = (
         "https://generativelanguage.googleapis.com/v1beta/models/"
         + config.GEMINI_MODEL + ":generateContent"
     )
-    r = requests.post(
-        url,
+    r = _request_with_retries(
+        "POST", url,
         params={"key": config.GEMINI_API_KEY},
         json={
             "contents": [{"parts": [{"text": prompt}]}],
@@ -75,13 +107,12 @@ def _call_gemini(prompt):
         },
         timeout=120,
     )
-    r.raise_for_status()
     return r.json()["candidates"][0]["content"]["parts"][0]["text"]
 
 
 def _call_openrouter(prompt):
-    r = requests.post(
-        "https://openrouter.ai/api/v1/chat/completions",
+    r = _request_with_retries(
+        "POST", "https://openrouter.ai/api/v1/chat/completions",
         headers={"Authorization": "Bearer " + config.OPENROUTER_API_KEY},
         json={
             "model": config.OPENROUTER_MODEL,
@@ -90,12 +121,11 @@ def _call_openrouter(prompt):
         },
         timeout=120,
     )
-    r.raise_for_status()
     return r.json()["choices"][0]["message"]["content"]
 
 
 def _generate(prompt):
-    """Пробуем Gemini, при ошибке — OpenRouter."""
+    """Пробуем Gemini (с повторами), при ошибке — OpenRouter (с повторами)."""
     errors = []
     if config.GEMINI_API_KEY:
         try:
@@ -107,6 +137,10 @@ def _generate(prompt):
             return _call_openrouter(prompt)
         except Exception as e:  # noqa: BLE001
             errors.append("OpenRouter: " + str(e))
+    if not errors:
+        raise RuntimeError(
+            "Не задан ни один ИИ-ключ. Укажи GEMINI_API_KEY и/или OPENROUTER_API_KEY в Secrets."
+        )
     raise RuntimeError("Все ИИ-провайдеры недоступны -> " + "; ".join(errors))
 
 
