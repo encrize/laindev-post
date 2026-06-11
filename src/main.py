@@ -28,7 +28,16 @@ def _ensure_image(post):
 
 def curate():
     posted = state.load_posted()
-    news = [n for n in fetch_recent_news() if n["link"] not in posted]
+    seen = set()
+    news = []
+    for n in fetch_recent_news():
+        if state.is_posted(n, posted):
+            continue
+        keys = state.post_keys(n)
+        if any(k in seen for k in keys):
+            continue
+        seen.update(keys)
+        news.append(n)
     if not news:
         send_report(
             f"\u26A0\uFE0F <b>Курирование {_now()}</b>\n"
@@ -36,9 +45,17 @@ def curate():
         )
         return
 
-    posts = select_and_write(news, config.POSTS_PER_DAY)
-    for p in posts:
+    chosen = set()
+    posts = []
+    for p in select_and_write(news, config.POSTS_PER_DAY):
+        if state.is_posted(p, posted):
+            continue
+        keys = state.post_keys(p)
+        if any(k in chosen for k in keys):
+            continue
+        chosen.update(keys)
         _ensure_image(p)
+        posts.append(p)
     state.save_queue(posts)
 
     lines = [
@@ -59,7 +76,7 @@ def publish_one():
     publish_post(post)
 
     posted = state.load_posted()
-    posted.add(post["link"])
+    posted.update(state.post_keys(post))
     state.save_posted(posted)
     state.save_queue(queue)
 
@@ -83,7 +100,7 @@ def publish_all():
     for post in queue:
         try:
             publish_post(post)
-            posted.add(post["link"])
+            posted.update(state.post_keys(post))
             ok += 1
         except Exception as e:  # noqa: BLE001
             send_report(f"\u274C Ошибка публикации «{post['title']}»: {e}")
