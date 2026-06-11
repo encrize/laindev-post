@@ -19,11 +19,11 @@ RETRY_STATUSES = {429, 500, 502, 503, 504}
 # Запасные БЕСПЛАТНЫЕ модели OpenRouter — перебираем по очереди при 429/ошибке.
 # Первым идёт OPENROUTER_MODEL из Secrets, потом эти.
 OPENROUTER_FALLBACK_MODELS = [
+    "openrouter/free",                          # авто-роутер: сам выбирает любую доступную бесплатную модель
+    "deepseek/deepseek-chat-v3-0324:free",
+    "deepseek/deepseek-r1:free",
     "meta-llama/llama-3.3-70b-instruct:free",
-    "meta-llama/llama-3.1-8b-instruct:free",
-    "google/gemini-2.0-flash-exp:free",
-    "mistralai/mistral-7b-instruct:free",
-    "qwen/qwen-2.5-7b-instruct:free",
+    "qwen/qwen3-235b-a22b:free",
 ]
 
 # В шаблоне используем простые плейсхолдеры __N__ и __NEWS__ (без str.format),
