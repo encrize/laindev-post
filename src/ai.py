@@ -1,7 +1,7 @@
 """Работа с бесплатным ИИ: выбор топ-N новостей и генерация постов.
 Один запрос на день -> легко укладывается в бесплатные лимиты.
-Основной провайдер — Gemini, резерв — OpenRouter.
-На 429/503 делаем повторы с экспоненциальной задержкой, потом фолбэк.
+Основной провайдер — Gemini, резерв — OpenRouter (перебираем несколько бесплатных моделей).
+На 429/5xx делаем повторы с экспоненциальной задержкой, потом фолбэк.
 """
 import json
 import re
@@ -12,9 +12,19 @@ import requests
 from . import config
 
 # Сколько раз повторять запрос при временных ошибках (429/5xx) до фолбэка.
-RETRY_ATTEMPTS = 4
-RETRY_BASE_DELAY = 4  # сек: 4, 8, 16, 32...
+RETRY_ATTEMPTS = 3
+RETRY_BASE_DELAY = 4  # сек: 4, 8, 16...
 RETRY_STATUSES = {429, 500, 502, 503, 504}
+
+# Запасные БЕСПЛАТНЫЕ модели OpenRouter — перебираем по очереди при 429/ошибке.
+# Первым идёт OPENROUTER_MODEL из Secrets, потом эти.
+OPENROUTER_FALLBACK_MODELS = [
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "meta-llama/llama-3.1-8b-instruct:free",
+    "google/gemini-2.0-flash-exp:free",
+    "mistralai/mistral-7b-instruct:free",
+    "qwen/qwen-2.5-7b-instruct:free",
+]
 
 # В шаблоне используем простые плейсхолдеры __N__ и __NEWS__ (без str.format),
 # чтобы фигурные скобки JSON-примера не надо было экранировать.
@@ -110,12 +120,12 @@ def _call_gemini(prompt):
     return r.json()["candidates"][0]["content"]["parts"][0]["text"]
 
 
-def _call_openrouter(prompt):
+def _call_openrouter(prompt, model):
     r = _request_with_retries(
         "POST", "https://openrouter.ai/api/v1/chat/completions",
         headers={"Authorization": "Bearer " + config.OPENROUTER_API_KEY},
         json={
-            "model": config.OPENROUTER_MODEL,
+            "model": model,
             "messages": [{"role": "user", "content": prompt}],
             "temperature": 0.7,
         },
@@ -125,18 +135,26 @@ def _call_openrouter(prompt):
 
 
 def _generate(prompt):
-    """Пробуем Gemini (с повторами), при ошибке — OpenRouter (с повторами)."""
+    """Пробуем Gemini (с повторами), при ошибке — OpenRouter (перебор бесплатных моделей)."""
     errors = []
+
     if config.GEMINI_API_KEY:
         try:
             return _call_gemini(prompt)
         except Exception as e:  # noqa: BLE001
             errors.append("Gemini: " + str(e))
+
     if config.OPENROUTER_API_KEY:
-        try:
-            return _call_openrouter(prompt)
-        except Exception as e:  # noqa: BLE001
-            errors.append("OpenRouter: " + str(e))
+        models = []
+        for m in [config.OPENROUTER_MODEL] + OPENROUTER_FALLBACK_MODELS:
+            if m and m not in models:
+                models.append(m)
+        for m in models:
+            try:
+                return _call_openrouter(prompt, m)
+            except Exception as e:  # noqa: BLE001
+                errors.append("OpenRouter[" + m + "]: " + str(e))
+
     if not errors:
         raise RuntimeError(
             "Не задан ни один ИИ-ключ. Укажи GEMINI_API_KEY и/или OPENROUTER_API_KEY в Secrets."
