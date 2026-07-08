@@ -1,1 +1,75 @@
-[]
+[
+  {
+    "title": "TES VI: Инсайдер назвал сроки выхода игры",
+    "body": "Долгожданная The Elder Scrolls VI от Bethesda Game Studios, похоже, выйдет не скоро. \n\nАвторитетный инсайдер поделился информацией о примерных сроках релиза. По его данным, до выхода игры ещё \"как минимум 2-3 года\".\n\nЖдем скрестив пальцы! 🤞",
+    "tags": [
+      "TES VI",
+      "Bethesda"
+    ],
+    "reason": "Новость о TES VI всегда вызывает большой ажиотаж. Информация от инсайдера важна для фанатов, ожидающих игру.",
+    "link": "https://3dnews.ru/1144737/avtoritetniy-insayder-proyasnil-kogda-viydet-the-elder-scrolls-vi",
+    "source": "3DNews",
+    "image": "https://cdn.3dnews.ru/assets/external/illustrations/2026/07/08/1144737/00.jpg"
+  },
+  {
+    "title": "Ремейк Splinter Cell: что известно о геймплее?",
+    "body": "Похоже, нас ждет возвращение к корням! 🕵️\n\nИнсайдер поделился информацией о ремейке Splinter Cell. Слухи говорят, что игра сохранит линейную структуру и культовую шкалу освещённости.\n\nНикаких песочниц, только стелс в лучшем его проявлении!",
+    "tags": [
+      "Splinter Cell",
+      "ремейк"
+    ],
+    "reason": "Ремейк культовой игры всегда привлекает внимание. Информация о сохранении ключевых механик важна для фанатов серии.",
+    "link": "https://stopgame.ru/newsdata/72080/sluh_v_remeyke_splinter_cell_sohranyat_lineynuyu_strukturu_i_shkalu_osveschennosti",
+    "source": "StopGame",
+    "image": "https://images.stopgame.ru/news/2026/07/08/QO-e-1Y.jpg"
+  },
+  {
+    "title": "Call of Duty: Black Ops 1 и 2 получат нативные версии для PS5",
+    "body": "Отличные новости для фанатов серии Call of Duty! 💥\n\nКлассические Black Ops 1 и 2 выйдут на PS5 с полным набором трофеев. Это значит, что нас ждут обновленные версии культовых шутеров.\n\nГотовьтесь к погружению в прошлое!",
+    "tags": [
+      "Call of Duty",
+      "PS5"
+    ],
+    "reason": "Выход обновленных версий популярных игр всегда актуален. Новость важна для владельцев PlayStation.",
+    "link": "https://www.pushsquare.com/news/2026/07/call-of-duty-black-ops-1-and-2-will-get-native-ps5-versions",
+    "source": "Push Square",
+    "image": "https://images.pushsquare.com/cde1390217988/large.jpg"
+  },
+  {
+    "title": "Minecraft: игроки наконец-то смогут сидеть!",
+    "body": "Казалось бы, мелочь, а приятно! 😄\n\nНовое обновление Minecraft добавит долгожданную функцию — возможность сидеть.\n\nПростое, но такое важное нововведение, которое наверняка оценят миллионы игроков.",
+    "tags": [
+      "Minecraft",
+      "обновление"
+    ],
+    "reason": "Minecraft - одна из самых популярных игр в мире. Любое обновление, особенно с таким востребованным функционалом, вызовет большой интерес.",
+    "link": "https://www.ign.com/articles/new-minecraft-update-finally-allows-players-to-sit-down",
+    "source": "IGN",
+    "image": "https://assets-prd.ignimgs.com/2026/07/01/new-key-art-01-1782922658372.jpg"
+  },
+  {
+    "title": "No Rest for the Wicked: продажи в раннем доступе превысили 2 миллиона!",
+    "body": "Успех, которого ждали! ✨\n\nФэнтезийный ролевой экшен No Rest for the Wicked от создателей Ori показал впечатляющие результаты. Продажи в раннем доступе Steam уже перевалили за 2 миллиона копий!\n\nРазработчики обещают, что \"лучшее ещё впереди\", а релиз версии 1.0 и порт на PS5 запланированы на октябрь.",
+    "tags": [
+      "No Rest for the Wicked",
+      "ранний доступ"
+    ],
+    "reason": "Высокие продажи в раннем доступе свидетельствуют о качестве игры и большом интересе аудитории. Новость важна для потенциальных покупателей.",
+    "link": "https://dtf.ru/gameindustry/5171699-prodazhi-no-rest-for-the-wicked?from=rss",
+    "source": "DTF",
+    "image": "https://leonardo.osnova.io/ff479c3e-2fa2-581a-a462-041b5b95891e/"
+  },
+  {
+    "title": "Microsoft потратила $80 млрд на Game Pass. Результат разочаровал",
+    "body": "Масштабные инвестиции, которые не оправдались. 📉\n\nНовый отчет раскрывает, что Microsoft вложила почти 80 миллиардов долларов за последние 10 лет в развитие Xbox и Game Pass. Однако, планы не увенчались полным успехом.\n\nЭто могло стать одной из причин недавних массовых увольнений в игровом подразделении.",
+    "tags": [
+      "Xbox",
+      "Game Pass",
+      "Microsoft"
+    ],
+    "reason": "Эта новость имеет огромное значение для всей индустрии. Она касается стратегии одного из крупнейших игроков рынка и напрямую связана с недавними увольнениями.",
+    "link": "https://www.gamespot.com/articles/microsoft-spent-80-billion-on-its-bet-for-xbox-game-pass-it-did-not-work/",
+    "source": "GameSpot",
+    "image": "https://www.gamespot.com/wp-content/uploads/2026/07/GamePass.webp?w=300"
+  }
+]
